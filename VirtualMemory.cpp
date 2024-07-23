@@ -3,7 +3,6 @@
 
 #define OFFSET_MASK ((1LL << OFFSET_WIDTH) - 1)
 #define PM_PAGE_NUM_MASK (~OFFSET_MASK & ((1LL << VIRTUAL_ADDRESS_WIDTH) - 1))
-#define NOT_IN_RAM 0;
 #define SUCCESS 1;
 #define FAILURE 0;
 

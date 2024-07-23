@@ -11,8 +11,6 @@ add_executable(HierarchicalPageTables
         MemoryConstants_test2.h
         PhysicalMemory.cpp
         PhysicalMemory.h
-        SimpleTest.cpp
         test1_write_read_all_virtual_memory.cpp
-        test2_write_one_page_twice_and_read.cpp
         VirtualMemory.cpp
         VirtualMemory.h)
