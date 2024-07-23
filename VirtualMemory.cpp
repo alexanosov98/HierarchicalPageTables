@@ -11,6 +11,15 @@
 void VMinitialize() {
 }
 
+int countBits(uint64_t binaryNumber) {
+  int count = 0;
+  while (binaryNumber > 0) {
+    count++;
+    binaryNumber >>= 1; // Right shift the number by 1 bit
+  }
+  return count;
+}
+
 uint64_t binaryToDecimal(uint64_t binaryNumber) {
     unsigned int decimalValue = 0;
     unsigned int base = 1;  // 2^0
@@ -124,6 +133,9 @@ PMPageNum){
 
 
 int VMread(uint64_t virtualAddress, word_t *value) {
+  if(countBits (virtualAddress) > VIRTUAL_ADDRESS_WIDTH){
+    return FAILURE;
+  }
   uint64_t finalOffset = virtualAddress & OFFSET_MASK;
   uint64_t PMPageNum = virtualAddress & PM_PAGE_NUM_MASK;
   uint64_t currFrameNum = 0;
@@ -135,11 +147,13 @@ int VMread(uint64_t virtualAddress, word_t *value) {
   //Write the value in the PM
   PMread(currFrameNum * PAGE_SIZE + finalOffset, value);
   return SUCCESS;
-  //todo handle if virtualAddress is invalid
 }
 
 
 int VMwrite(uint64_t virtualAddress, word_t value) {
+  if(countBits (virtualAddress) > VIRTUAL_ADDRESS_WIDTH){
+    return FAILURE;
+  }
   uint64_t finalOffset = virtualAddress & OFFSET_MASK;
   uint64_t PMPageNum = virtualAddress & PM_PAGE_NUM_MASK;
   uint64_t currFrameNum = 0;
@@ -151,5 +165,4 @@ int VMwrite(uint64_t virtualAddress, word_t value) {
   //Write the value in the PM
   PMwrite(currFrameNum * PAGE_SIZE + finalOffset, value);
   return SUCCESS;
-  //todo handle if virtualAddress is invalid
 }
