@@ -1,7 +1,7 @@
 #pragma once
 
-//#include "MemoryConstants.h"
-#include "const_amir.h"
+#include "MemoryConstants.h"
+//#include "const_amir.h"
 /*
  * Initialize the virtual memory
  */

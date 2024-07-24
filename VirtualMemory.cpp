@@ -99,7 +99,9 @@ int findCyclicalDistance(uint64_t targetPage, uint64_t currPageNumber) {
 
 
 void evictPage(word_t& evictedFrame, word_t& evictedFather, int& evictedPageNumber){
+  if (evictedPageNumber != NUM_PAGES){
     PMevict (evictedFrame, evictedPageNumber);
+  }
     word_t val;
     for (int i = 0; i < PAGE_SIZE; i++){
         PMwrite (evictedFrame * PAGE_SIZE + i, 0);
@@ -142,7 +144,7 @@ evictedFather, int& evictedPageNum, uint64_t& originalFrame) {
             maxCyclicalDistance = NUM_PAGES;
             evictedFrame = frameIndex;
             evictedFather = myFather;
-            evictedPageNum = currentVirtualAddress; //todo
+            evictedPageNum = NUM_PAGES; //todo
             return;
         }
     }

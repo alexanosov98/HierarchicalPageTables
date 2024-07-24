@@ -14,4 +14,5 @@ add_executable(HierarchicalPageTables
         VirtualMemory.cpp
         VirtualMemory.h
         const_amir.h
-        algorithmExample.cpp)
+        test1_write_read_all_virtual_memory.cpp
+        )
