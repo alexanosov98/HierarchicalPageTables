@@ -138,7 +138,7 @@ evictedFather, int& evictedPageNum) {
                 break;
             }
         }
-        if (found and frameIndex != myFather){
+        if (found){
             maxCyclicalDistance = NUM_PAGES;
             evictedFrame = frameIndex;
             evictedFather = myFather;
