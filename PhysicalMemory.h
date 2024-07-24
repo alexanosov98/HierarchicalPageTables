@@ -1,7 +1,7 @@
 #pragma once
 
-#include "MemoryConstants.h"
-
+//#include "MemoryConstants.h"
+#include "const_amir.h"
 /*
  * reads an integer from the given physical address and puts it in 'value'
  */
