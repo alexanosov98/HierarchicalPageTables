@@ -128,7 +128,7 @@ evictedFather, int& evictedPageNum) {
         return;
     }
     //Checks if the current frame is empty, if so returns it.
-    if (depth < TABLES_DEPTH && ) {
+    if (depth < TABLES_DEPTH) {
         word_t testVal;
         bool found = true;
         for (uint64_t i = 0; i < PAGE_SIZE; i++) {
@@ -138,7 +138,7 @@ evictedFather, int& evictedPageNum) {
                 break;
             }
         }
-        if (found){
+        if (found and frameIndex != myFather){
             maxCyclicalDistance = NUM_PAGES;
             evictedFrame = frameIndex;
             evictedFather = myFather;
