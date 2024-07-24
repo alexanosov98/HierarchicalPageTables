@@ -121,14 +121,14 @@ void evictPage(word_t& evictedFrame, word_t& evictedFather, int& evictedPageNumb
 void findPageToEvict(word_t frameIndex, int depth, uint64_t
 targetPage, word_t& evictedFrame, int& maxCyclicalDistance, uint64_t&
 currentVirtualAddress, word_t* maxOccupiedFrame, word_t myFather, word_t&
-evictedFather, int& evictedPageNum) {
+evictedFather, int& evictedPageNum, uint64_t& originalFrame) {
 
     //Flag for the case that we found an empty frame
     if (maxCyclicalDistance == NUM_PAGES){
         return;
     }
     //Checks if the current frame is empty, if so returns it.
-    if (depth < TABLES_DEPTH) {
+    if (depth < TABLES_DEPTH && frameIndex != originalFrame) {
         word_t testVal;
         bool found = true;
         for (uint64_t i = 0; i < PAGE_SIZE; i++) {
@@ -142,7 +142,7 @@ evictedFather, int& evictedPageNum) {
             maxCyclicalDistance = NUM_PAGES;
             evictedFrame = frameIndex;
             evictedFather = myFather;
-            evictedPageNum = currentVirtualAddress;
+            evictedPageNum = currentVirtualAddress; //todo
             return;
         }
     }
@@ -168,7 +168,8 @@ evictedFather, int& evictedPageNum) {
             currentVirtualAddress = (currentVirtualAddress << 1LL) + i;
             findPageToEvict(val, depth + 1, targetPage, evictedFrame,
                             maxCyclicalDistance, currentVirtualAddress,
-                            maxOccupiedFrame, frameIndex, evictedFather, evictedPageNum);
+                            maxOccupiedFrame, frameIndex, evictedFather,
+                            evictedPageNum, originalFrame);
             currentVirtualAddress = (currentVirtualAddress - i) >> 1LL;
         }
     }
@@ -191,7 +192,8 @@ word_t findNewFrame(uint64_t desirablePageNum, uint64_t currFrame){
     int evictedPageNum = 0;
 
     findPageToEvict(0, 0, desirablePageNum, evictedFrame,
-                    maxCyclicalDistance, currentVirtualAddress, &maxOccupiedFrame, 0, evictedFather, evictedPageNum);
+                    maxCyclicalDistance, currentVirtualAddress,
+                    &maxOccupiedFrame, 0, evictedFather, evictedPageNum, currFrame);
 
     evictPage(evictedFrame, evictedFather, evictedPageNum);
     return evictedFrame;
