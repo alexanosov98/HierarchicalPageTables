@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "VirtualMemory.h"
 #include "PhysicalMemory.h"
 
@@ -8,6 +9,7 @@
 
 
 void VMinitialize() {
+  PMwrite (0, 0);
 }
 
 int countBits(uint64_t binaryNumber) {
@@ -73,19 +75,90 @@ word_t checkForEmptyFrame(uint64_t currFrame){
 }
 
 
+// Function to calculate cyclical distance
+uint64_t findCyclicalDistance(uint64_t a, uint64_t b) {
+  if (std::abs(static_cast<int64_t>(a) - static_cast<int64_t>(b)) > NUM_PAGES -
+  std::abs(static_cast<int64_t>(a) - static_cast<int64_t>(b))){
+    return NUM_PAGES - std::abs(static_cast<int64_t>(a) -
+    static_cast<int64_t>(b));
+  }
+  return std::abs(static_cast<int64_t>(a) - static_cast<int64_t>(b));
+}
+
+
+void evictPage(word_t& evictedFrame, word_t& evictedFather, uint64_t& currentVirtualAddress){
+  PMevict (evictedFrame * PAGE_SIZE, currentVirtualAddress);
+  word_t val;
+  for (int i = 0; i < PAGE_SIZE; i++){
+    PMwrite (evictedFrame * PAGE_SIZE + i, 0);
+    PMread (evictedFather * PAGE_SIZE + i, &val);
+    if(val == evictedFrame){
+      PMwrite (evictedFather * PAGE_SIZE + i, 0);
+    }
+  }
+
+
+
+}
+
+/**
+ * Function to traverse the page table tree and find the closest frame to
+ * change
+ */
+
+void findFrameToEvict(word_t frameIndex, int depth, uint64_t
+targetPage, word_t& evictedFrame, uint64_t& maxCyclicalDistance, uint64_t&
+currentVirtualAddress, word_t& maxOccupiedFrame, word_t myFather, word_t&
+evictedFather) {
+
+  if (frameIndex > maxOccupiedFrame){
+    maxOccupiedFrame = frameIndex;
+  }
+
+  //Base case: when we reach the maximum depth, calculate the distance.
+  if (depth == TABLES_DEPTH) {
+    uint64_t distance = findCyclicalDistance (targetPage, currentVirtualAddress);
+    if (distance > maxCyclicalDistance)
+    {
+      maxCyclicalDistance = distance;
+      evictedFrame = frameIndex;
+      evictedFather = myFather;
+    }
+    return;
+  }
+
+  // Traverse each entry in the current table
+  word_t val;
+  for (uint64_t i = 0; i < PAGE_SIZE; i++) {
+    PMread(frameIndex * PAGE_SIZE + i, &val);
+    if (val != 0) {
+      currentVirtualAddress = binaryToDecimal (currentVirtualAddress) + i;
+      currentVirtualAddress = decimalToBinary (currentVirtualAddress);
+      findFrameToEvict (val, depth + 1, targetPage, evictedFrame,
+                        maxCyclicalDistance, currentVirtualAddress,
+                        maxOccupiedFrame, frameIndex, evictedFather);
+    }
+  }
+}
+
 /*
  * Returns the new frame address, evicts an existing frame if needed
  */
-word_t findNewFrame(){
-//  if (maxFrameReached + 1 < NUM_FRAMES){
-//
-//  }
+word_t findNewFrame(uint64_t desirablePageNum, uint64_t currFrame , word_t&
+maxOccupiedFrame ){ //
   //todo evict, check MAX FRAME REACHED.
   word_t empty_frame = checkForEmptyFrame(currFrame);
   if(empty_frame != 0){
     return empty_frame;
   }
-
+  word_t evictedFrame;
+  uint64_t maxCyclicalDistance = -1;
+  word_t evictedFather = 0;
+  uint64_t currentVirtualAddress = 0;
+  findFrameToEvict (0, 0, desirablePageNum, evictedFrame,
+                    maxCyclicalDistance, currentVirtualAddress, maxOccupiedFrame, 0, evictedFather);
+  evictPage(evictedFrame, evictedFather, currentVirtualAddress);
+  return evictedFrame;
 }
 
 
