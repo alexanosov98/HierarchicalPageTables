@@ -122,6 +122,31 @@ void findPageToEvict(word_t frameIndex, int depth, uint64_t
 targetPage, word_t& evictedFrame, int& maxCyclicalDistance, uint64_t&
 currentVirtualAddress, word_t* maxOccupiedFrame, word_t myFather, word_t&
 evictedFather, int& evictedPageNum) {
+
+    //Flag for the case that we found an empty frame
+    if (maxCyclicalDistance == NUM_PAGES){
+        return;
+    }
+    //Checks if the current frame is empty, if so returns it.
+    if (depth < TABLES_DEPTH && ) {
+        word_t testVal;
+        bool found = true;
+        for (uint64_t i = 0; i < PAGE_SIZE; i++) {
+            PMread(frameIndex * PAGE_SIZE + i, &testVal);
+            if (testVal != 0 ) {
+                found = false;
+                break;
+            }
+        }
+        if (found){
+            maxCyclicalDistance = NUM_PAGES;
+            evictedFrame = frameIndex;
+            evictedFather = myFather;
+            evictedPageNum = currentVirtualAddress;
+            return;
+        }
+    }
+
     //Base case: when we reach the maximum depth, calculate the distance.
     if (depth == TABLES_DEPTH) {
         int distance = findCyclicalDistance (targetPage, currentVirtualAddress);
@@ -158,11 +183,13 @@ word_t findNewFrame(uint64_t desirablePageNum, uint64_t currFrame){
     if (maxOccupiedFrame + 1 < NUM_FRAMES){
         return ++maxOccupiedFrame;
     }
+
     word_t evictedFrame;
     int maxCyclicalDistance = -1;
     word_t evictedFather = 0;
     uint64_t currentVirtualAddress = 0;
     int evictedPageNum = 0;
+
     findPageToEvict(0, 0, desirablePageNum, evictedFrame,
                     maxCyclicalDistance, currentVirtualAddress, &maxOccupiedFrame, 0, evictedFather, evictedPageNum);
 
