@@ -13,6 +13,9 @@ int main(int argc, char **argv) {
         std::cout << "Writing the value " + std::to_string(j) << std::endl;
         VMwrite(i, i);
     }
+    std::cout << std::endl;
+    printRam();
+    std::cout << std::endl;
 
     for (uint64_t i = 0; i < VIRTUAL_MEMORY_SIZE; ++i) {
         word_t value;

@@ -1,6 +1,7 @@
 #include <algorithm>
 #include "VirtualMemory.h"
 #include "PhysicalMemory.h"
+#include <iostream> //todo remove later
 
 #define OFFSET_MASK & ((1LL << OFFSET_WIDTH) - 1)
 #define PM_PAGE_NUM_MASK >> OFFSET_WIDTH
@@ -100,6 +101,8 @@ int findCyclicalDistance(uint64_t targetPage, uint64_t currPageNumber) {
 
 void evictPage(word_t& evictedFrame, word_t& evictedFather, int& evictedPageNumber){
   if (evictedPageNumber != NUM_PAGES){
+    std::cout << "evicting page num " + std::to_string (evictedPageNumber)
+    << std::endl;
     PMevict (evictedFrame, evictedPageNumber);
   }
     word_t val;
@@ -110,9 +113,6 @@ void evictPage(word_t& evictedFrame, word_t& evictedFather, int& evictedPageNumb
             PMwrite (evictedFather * PAGE_SIZE + i, 0);
         }
     }
-
-
-
 }
 
 /**
@@ -167,12 +167,12 @@ evictedFather, int& evictedPageNum, uint64_t& originalFrame) {
 
         PMread(frameIndex * PAGE_SIZE + i, &val);
         if (val != 0) {
-            currentVirtualAddress = (currentVirtualAddress << 1LL) + i;
+            currentVirtualAddress = (currentVirtualAddress << OFFSET_WIDTH) + i;
             findPageToEvict(val, depth + 1, targetPage, evictedFrame,
                             maxCyclicalDistance, currentVirtualAddress,
                             maxOccupiedFrame, frameIndex, evictedFather,
                             evictedPageNum, originalFrame);
-            currentVirtualAddress = (currentVirtualAddress - i) >> 1LL;
+            currentVirtualAddress = (currentVirtualAddress - i) >> OFFSET_WIDTH;
         }
     }
 }
@@ -236,6 +236,8 @@ void reachTheLeaf(uint64_t& currFrameNum, uint64_t virtualAddress, uint64_t PMPa
                 }
             }
             else{
+              std::cout << "Restoring page num " << virtualAddress <<
+              OFFSET_WIDTH << std::endl;
                 PMrestore(newFrameNum, virtualAddress >> OFFSET_WIDTH);
             }
             //Link the previous table to the new table
