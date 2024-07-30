@@ -1,7 +1,7 @@
 #include <algorithm>
 #include "VirtualMemory.h"
 #include "PhysicalMemory.h"
-#include <iostream> //todo remove later
+
 
 #define OFFSET_MASK & ((1LL << OFFSET_WIDTH) - 1)
 #define PM_PAGE_NUM_MASK >> OFFSET_WIDTH
@@ -36,7 +36,6 @@ uint64_t binaryToDecimal(uint64_t binaryNumber) {
         binaryNumber = binaryNumber / 10;
         base = base * 2;
     }
-
     return decimalValue;
 }
 
@@ -48,66 +47,21 @@ uint64_t getNextPageOffset(uint64_t address, int depth) {
 }
 
 
-word_t getMaxOccupiedFrame(uint64_t currFrame, word_t& maxOccupiedFrame){
-    word_t val;
-    for (word_t i = 0; i < NUM_FRAMES; i++){
-        if (i != currFrame)
-        {
-            for (word_t j = 0; j < PAGE_SIZE; j++){
-                PMread (i * PAGE_SIZE + j, &val);
-                if (val != 0)
-                {
-                    if (val > maxOccupiedFrame){
-                        maxOccupiedFrame = val;
-                    }
-                }
-            }
-        }
-    }
-}
-
-word_t getEmptyFrame(uint64_t currFrame){
-    word_t val;
-    for (word_t i = 0; i < NUM_FRAMES; i++){
-        if (i != currFrame)
-        {
-            bool frameIsEmpty = true;
-            for (word_t j = 0; j < PAGE_SIZE; j++){
-                PMread (i * PAGE_SIZE + j, &val);
-                if (val != 0)
-                {
-                    frameIsEmpty = false;
-                    break;
-                }
-            }
-            if (frameIsEmpty){
-                return i;
-            }
-        }
-    }
-    return 0;
-}
-
-
 
 // Function to calculate cyclical distance
-int findCyclicalDistance(uint64_t targetPage, uint64_t currPageNumber) {
-    if (targetPage - currPageNumber < NUM_PAGES - (targetPage - currPageNumber)){
-        return (int) (targetPage - currPageNumber);
-    }
-    return (int) (NUM_PAGES - (targetPage - currPageNumber));
+int findCyclicalDistance(uint64_t currentPage, uint64_t targetPage) {
+    uint64_t distance1 = NUM_PAGES - std::abs(int64_t(targetPage) - int64_t(currentPage));
+    uint64_t distance2 = std::abs(int64_t(targetPage) - int64_t(currentPage));
+    uint64_t distance = distance1 < distance2 ? distance1 : distance2;
+    return distance;
 }
 
-
-void evictPage(word_t& evictedFrame, word_t& evictedFather, int& evictedPageNumber){
-  if (evictedPageNumber != NUM_PAGES){
-    std::cout << "evicting page num " + std::to_string (evictedPageNumber)
-    << std::endl;
-    PMevict (evictedFrame, evictedPageNumber);
-  }
+void clearFrameAndFathersLink(word_t& evictedFrame, word_t& evictedFather, bool isLeaf = false){
     word_t val;
     for (int i = 0; i < PAGE_SIZE; i++){
-        PMwrite (evictedFrame * PAGE_SIZE + i, 0);
+        if (!isLeaf){
+            PMwrite (evictedFrame * PAGE_SIZE + i, 0);
+        }
         PMread (evictedFather * PAGE_SIZE + i, &val);
         if(val == evictedFrame){
             PMwrite (evictedFather * PAGE_SIZE + i, 0);
@@ -119,23 +73,24 @@ void evictPage(word_t& evictedFrame, word_t& evictedFather, int& evictedPageNumb
  * Function to traverse the page table tree and find the closest frame to
  * change
  */
-
 void findPageToEvict(word_t frameIndex, int depth, uint64_t
 targetPage, word_t& evictedFrame, int& maxCyclicalDistance, uint64_t&
 currentVirtualAddress, word_t* maxOccupiedFrame, word_t myFather, word_t&
-evictedFather, int& evictedPageNum, uint64_t& originalFrame) {
-
+evictedFather, int& evictedPageNum, uint64_t& originalFrame, bool &emptyFound) {
     //Flag for the case that we found an empty frame
     if (maxCyclicalDistance == NUM_PAGES){
         return;
     }
     //Checks if the current frame is empty, if so returns it.
-    if (depth < TABLES_DEPTH && frameIndex != originalFrame) {
+    if (depth < TABLES_DEPTH && ((uint64_t )frameIndex) != originalFrame) {
         word_t testVal;
         bool found = true;
         for (uint64_t i = 0; i < PAGE_SIZE; i++) {
             PMread(frameIndex * PAGE_SIZE + i, &testVal);
-            if (testVal != 0 ) {
+            if (testVal != 0) {
+                if (testVal > *maxOccupiedFrame){
+                    *maxOccupiedFrame = testVal;
+                }
                 found = false;
                 break;
             }
@@ -144,14 +99,13 @@ evictedFather, int& evictedPageNum, uint64_t& originalFrame) {
             maxCyclicalDistance = NUM_PAGES;
             evictedFrame = frameIndex;
             evictedFather = myFather;
-            evictedPageNum = NUM_PAGES; //todo
+            evictedPageNum = NUM_PAGES;
             return;
         }
     }
-
     //Base case: when we reach the maximum depth, calculate the distance.
     if (depth == TABLES_DEPTH) {
-        int distance = findCyclicalDistance (targetPage, currentVirtualAddress);
+        int distance = findCyclicalDistance ( currentVirtualAddress, targetPage);
         if (distance > maxCyclicalDistance)
         {
             maxCyclicalDistance = distance;
@@ -161,17 +115,19 @@ evictedFather, int& evictedPageNum, uint64_t& originalFrame) {
         }
         return;
     }
-    // Traverse each entry in the current table
+    //Traverse each entry in the current table
     word_t val;
     for (uint64_t i = 0; i < PAGE_SIZE; i++) {
-
         PMread(frameIndex * PAGE_SIZE + i, &val);
         if (val != 0) {
-            currentVirtualAddress = (currentVirtualAddress << OFFSET_WIDTH) + i;
+            if (val > *maxOccupiedFrame){
+                *maxOccupiedFrame = val;
+            }
+            currentVirtualAddress = (currentVirtualAddress << OFFSET_WIDTH) + i; //todo MIGHT NEED TO  CHANGE THIS
             findPageToEvict(val, depth + 1, targetPage, evictedFrame,
                             maxCyclicalDistance, currentVirtualAddress,
                             maxOccupiedFrame, frameIndex, evictedFather,
-                            evictedPageNum, originalFrame);
+                            evictedPageNum, originalFrame, emptyFound);
             currentVirtualAddress = (currentVirtualAddress - i) >> OFFSET_WIDTH;
         }
     }
@@ -182,36 +138,26 @@ evictedFather, int& evictedPageNum, uint64_t& originalFrame) {
  */
 word_t findNewFrame(uint64_t desirablePageNum, uint64_t currFrame){
     word_t maxOccupiedFrame = 0;
-    getMaxOccupiedFrame(currFrame, maxOccupiedFrame);
-    if (maxOccupiedFrame + 1 < NUM_FRAMES){
-        return ++maxOccupiedFrame;
-    }
-
+    bool emptyFound = false;
     word_t evictedFrame;
     int maxCyclicalDistance = -1;
     word_t evictedFather = 0;
     uint64_t currentVirtualAddress = 0;
     int evictedPageNum = 0;
-
     findPageToEvict(0, 0, desirablePageNum, evictedFrame,
                     maxCyclicalDistance, currentVirtualAddress,
-                    &maxOccupiedFrame, 0, evictedFather, evictedPageNum, currFrame);
-
-    evictPage(evictedFrame, evictedFather, evictedPageNum);
-    return evictedFrame;
-}
-#include <iostream>
-void printPhysicalMemory1() {
-    std::cout << "Physical Memory:" << std::endl;
-    for (int frame = 0; frame < NUM_FRAMES; ++frame) {
-        std::cout << "Frame " << frame << ": ";
-        for (int offset = 0; offset < PAGE_SIZE; ++offset) {
-            word_t value;
-            PMread(frame * PAGE_SIZE + offset, &value);
-            std::cout << value << " ";
-        }
-        std::cout << std::endl;
+                    &maxOccupiedFrame, 0, evictedFather, evictedPageNum, currFrame, emptyFound);
+    //Found an empty Frame
+    if (evictedPageNum == NUM_PAGES){
+        clearFrameAndFathersLink(evictedFrame, evictedFather);
+        return evictedFrame;
     }
+    if (maxOccupiedFrame + 1 < NUM_FRAMES){
+        return ++maxOccupiedFrame;
+    }
+    PMevict (evictedFrame, evictedPageNum);
+    clearFrameAndFathersLink(evictedFrame, evictedFather, true);
+    return evictedFrame;
 }
 
 void reachTheLeaf(uint64_t& currFrameNum, uint64_t virtualAddress, uint64_t PMPageNum){
@@ -229,39 +175,34 @@ void reachTheLeaf(uint64_t& currFrameNum, uint64_t virtualAddress, uint64_t PMPa
             fatherFrame = currFrameNum;
             //Find a new frame to store the Page table
             newFrameNum = findNewFrame(PMPageNum, currFrameNum);
+            //No a leaf.
             if (treeDepth != TABLES_DEPTH - 1) {
                 //If the next layer is a table, fill it with zeros.
                 for (int i = 0; i < PAGE_SIZE; i++) {
                     PMwrite(newFrameNum * PAGE_SIZE + i, 0);
                 }
             }
+            //Is a leaf
             else{
-              std::cout << "Restoring page num " << virtualAddress <<
-              OFFSET_WIDTH << std::endl;
                 PMrestore(newFrameNum, virtualAddress >> OFFSET_WIDTH);
             }
             //Link the previous table to the new table
             PMwrite(fatherFrame * PAGE_SIZE + nextPageOffset, newFrameNum);
             currFrameNum = newFrameNum;
-            printPhysicalMemory1();
         }
         //Page table is in the RAM
         else{
             currFrameNum = readValue;
         }
         treeDepth++;
-
-
     }
 }
-
-
 
 int VMread(uint64_t virtualAddress, word_t *value) {
     if(countBits (virtualAddress) > VIRTUAL_ADDRESS_WIDTH){
         return FAILURE;
     }
-    uint64_t finalOffset = virtualAddress OFFSET_MASK;
+    uint64_t finalOffset = virtualAddress % PAGE_SIZE;
     uint64_t PMPageNum = virtualAddress PM_PAGE_NUM_MASK;
     uint64_t currFrameNum = 0;
 
@@ -270,7 +211,6 @@ int VMread(uint64_t virtualAddress, word_t *value) {
     PMread(currFrameNum * PAGE_SIZE + finalOffset, value);
     return SUCCESS;
 }
-
 
 int VMwrite(uint64_t virtualAddress, word_t value) {
     if(countBits (virtualAddress) > VIRTUAL_ADDRESS_WIDTH){

@@ -71,8 +71,12 @@ void PMrestore(uint64_t frameIndex, uint64_t restoredPageIndex) {
 
 void printRam()
 {
-    for (uint64_t  i = 0; i < RAM_SIZE; i++)
+  int j =0;
+  for (uint64_t  i = 0; i < RAM_SIZE; i++)
     {
+        if (i%PAGE_SIZE == 0){
+          std::cout << "Frame Number: " << std::to_string(j++) << std::endl;
+        }
         word_t tmp;
         PMread(i, &tmp);
         std::cout << i << ": " << tmp << std::endl;
